@@ -244,21 +244,6 @@ const ticks = ref([
     width: calc(100% / var(--tl-ticks-per-view));
     background: var(--tl-tick-bg-color);
 
-    &:first-of-type {
-        justify-content: flex-start;
-        width: calc((100% / var(--tl-ticks-per-view)) / 2);
-        min-width: calc((100% / var(--tl-ticks-per-view)) / 2);
-
-        .tl-tick__point::before {
-            display: none;
-        }
-
-        .tl-tick__point::after {
-            min-width: calc(100% - var(--tl-tick-point-size) - var(--tl-tick-point-offset));
-            width: calc(100% - var(--tl-tick-point-size) - var(--tl-tick-point-offset));
-        }
-    }
-
     &__label {
         font-weight: bold;
         position: absolute;
