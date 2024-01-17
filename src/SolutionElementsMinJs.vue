@@ -1,7 +1,7 @@
 <template>
-    <div id="timeline" class="position-relative">
-        <div class="tl-wrapper" data-simplebar>
-            <div class="tl-drag-box">
+    <div ref="timeline" class="position-relative">
+        <div class="tl-container" data-simplebar>
+            <div class="d-flex">
                 <div class="tl-start-box">
                     Start
                 </div>
@@ -45,12 +45,20 @@ import ResizeObserver from 'resize-observer-polyfill'
 
 window.ResizeObserver = ResizeObserver
 
+const timeline = ref<HTMLElement | null>(null)
 const toggleTooltip = (e: Event, index: number) => {
     const tooltips = document.querySelectorAll('.tl-tick__tooltip')
+    const ticks = document.querySelectorAll('.tl-tick')
     const tooltip = tooltips[index]
     for (const tooltip of tooltips) {
         if (tooltip !== tooltips[index]) {
             tooltip.classList.add('d-none')
+        }
+    }
+
+    for (const tick of ticks) {
+        if (ticks[index]) {
+            tick.classList.remove('tl-tick--active')
         }
     }
 
@@ -59,7 +67,8 @@ const toggleTooltip = (e: Event, index: number) => {
             tooltip.style.left = `${x}px`
             tooltip.style.top = `${y + 20}px`
         })
-        tooltip.classList.remove('d-none')
+        e.currentTarget.classList.toggle('tl-tick--active')
+        tooltip.classList.toggle('d-none')
     }
 }
 
@@ -73,26 +82,30 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     const tooltips = document.querySelectorAll('.tl-tick__tooltip')
-    const timeline = document.querySelector('#timeline')
+    const tl = timeline.value
     const scrollbar = document.querySelector('[data-simplebar]')
 
     if (scrollbar instanceof HTMLElement) {
         const simplebar = new SimpleBar(scrollbar)
         simplebar.getScrollElement()?.addEventListener('scroll', () => {
             const tooltips = document.querySelectorAll('.tl-tick__tooltip')
-            const timeline = document.querySelector('#timeline')
+            const ticks = document.querySelectorAll('.tl-tick')
     
-            if (timeline instanceof HTMLElement && tooltips.length !== 0) {
+            if (tl instanceof HTMLElement && tooltips.length !== 0) {
                 for (const tooltip of tooltips) {
                     tooltip.classList.add('d-none')
                 }
             }
+
+            for (const tick of ticks) {
+                tick.classList.remove('tl-tick--active')
+            }
         })
     }
 
-    if (timeline instanceof HTMLElement && tooltips.length !== 0) {
+    if (tl instanceof HTMLElement && tooltips.length !== 0) {
         for (const tooltip of tooltips) {
-            timeline.append(tooltip)
+            tl.append(tooltip)
         }
     }
 })
@@ -166,6 +179,8 @@ const ticks = ref([
     --tl-axis-color: orange;
     --tl-axis-x-gap: 20px;
 
+    --tl-scrollbar-background: #eea46e;
+
     --tl-tick-point-offset: 6px;
     --tl-tick-point-size: 20px;
     --tl-tick-point-border-width: 2px;
@@ -176,18 +191,11 @@ const ticks = ref([
 }
 
 .simplebar-scrollbar::before {
-    background: #eea46e;
-    // background: var(--tl-axis-color);
+    background: var(--tl-scrollbar-background);
 }
 
-.tl-wrapper {
-    position: relative;
+.tl-container {
     padding: calc(var(--tl-tick-point-size) * 2) 0 calc(var(--tl-tick-point-size)) 0;
-}
-
-.tl-drag-box {
-    display: flex;
-    align-items: center;
 }
 
 .tl-start-box {
@@ -196,9 +204,7 @@ const ticks = ref([
     align-items: center;
 
     min-width: calc(var(--tl-tick-point-size) * 3);
-    width: calc(var(--tl-tick-point-size) * 3);
     min-height: calc(var(--tl-tick-point-size) * 3);
-    height: calc(var(--tl-tick-point-size) * 3);
     
     color: var(--tl-start-box-color);
     background: var(--tl-start-box-bg);
@@ -244,6 +250,18 @@ const ticks = ref([
     width: calc(100% / var(--tl-ticks-per-view));
     background: var(--tl-tick-bg-color);
 
+    cursor: pointer;
+
+    &:hover > .tl-tick__point {
+        background: var(--tl-tick-point-border-color);
+    }
+
+    &--active {
+        & > .tl-tick__point {
+            background: var(--tl-tick-point-border-color);
+        }
+    }
+
     &__label {
         font-weight: bold;
         position: absolute;
@@ -260,12 +278,6 @@ const ticks = ref([
         width: var(--tl-tick-point-size);
         border-radius: 50%;
         border: var(--tl-tick-point-border-width) solid var(--tl-tick-point-border-color);
-        transition: background ease-in-out 0.1s;
-
-        &:hover {
-            cursor: pointer;
-            background: var(--tl-tick-point-border-color);
-        }
 
         &::before,
         &::after {
@@ -297,6 +309,8 @@ const ticks = ref([
 
         padding: 1rem;
         border-radius: 4px;
+
+        transition: display ease-in-out 0.3s;
     }
 
     &__tooltip div[data-tooltip-arrow] {
