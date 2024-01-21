@@ -8,7 +8,7 @@
                 <div class="tl-tick-group">
                     <div
                         class="tl-tick"
-                        v-for="(item, index) in ticks.slice(0, ticksToDisplay)"
+                        v-for="(item, index) in ticks.slice(0, ticksToDisplayComputed)"
                         :key="index"
                         @click="toggleTooltip($event, index)"
                     >
@@ -18,6 +18,7 @@
                             class="tl-tick-tooltip d-lg-none"
                             role="tooltip"
                         >
+                            <div data-tooltip-arrow></div>
                             <div class="d-flex justify-content-between mb-3">
                                 <div class="fw-bold">{{ item.title }}</div>
                                 <div style="width: 1rem;"></div>
@@ -32,7 +33,7 @@
             </div>
         </div>
         <div class="tl-fade-box"></div>
-        <div class="tl-show-more-button d-lg-none" :class="{ 'd-none': ticks.length < ticksToDisplay }" @click="showMore">
+        <div class="tl-show-more-button d-lg-none" :class="{ 'd-none': ticks.length <= ticksToDisplayComputed }" @click="showMore">
             <span class="me-1">Zobrazit více</span>
             <IconifyIcon icon="mdi:chevron-down" />
         </div>
@@ -40,8 +41,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { computePosition } from '@floating-ui/dom'
+import { breakpointsBootstrapV5, useBreakpoints } from '@vueuse/core'
 
 import SimpleBar from 'simplebar-core'
 import 'simplebar'
@@ -51,9 +53,7 @@ import ResizeObserver from 'resize-observer-polyfill'
 import { Icon as IconifyIcon } from '@iconify/vue'
 
 window.ResizeObserver = ResizeObserver
-const timeline = ref<HTMLElement | null>(null)
-const ticksToDisplay = ref<number>(4)
-const ticksToDisplayStep = ref<number>(4)
+const breakpoints = useBreakpoints(breakpointsBootstrapV5)
 const ticks = ref([
     {
         label: '2020',
@@ -106,53 +106,86 @@ const ticks = ref([
         content: 'Ahoj já jsem testovací content'
     }
 ])
+const timeline = ref<HTMLElement | null>(null)
+const ticksToDisplayStep = ref<number>(4)
+// Workaround for SSR - Needed for tooltips clone process after DOMContentLoaded
+const ticksToDisplay = ref<number>(ticks.value.length)
+const ticksToDisplayComputed = computed({
+    get() {
+        if (breakpoints.greater('lg').value) {
+            return ticks.value.length
+        }
+
+        return ticksToDisplay.value
+    },
+    set(value: number) {
+        ticksToDisplay.value = value
+    }
+})
 
 const showMore = () => {
-    ticksToDisplay.value += ticksToDisplayStep.value
+    if (ticks.value.length > ticksToDisplay.value) {
+        ticksToDisplayComputed.value += ticksToDisplayStep.value
+    }
 }
 
 const toggleTooltip = (e: Event, index: number) => {
-    // const tooltipEl = document.querySelector('.tl-tick-tooltip')?.cloneNode(true)
-    // if (tooltipEl instanceof HTMLElement && e.currentTarget instanceof HTMLElement) {
-    //     const tooltipEls = document.querySelectorAll('.tl-tick-tooltip')
-    //     const tickEls = document.querySelectorAll('.tl-tick')
-    //     const tooltipData = ticks.value[index]
-    //     tooltipEl.querySelector('[data-tick-tooltip-title]')?.append(tooltipData.title)
-    //     tooltipEl.querySelector('[data-tick-tooltip-label]')?.append(tooltipData.label)
-    //     tooltipEl.querySelector('[data-tick-tooltip-content]')?.append(tooltipData.content)
-    // }
+    const tickElements = document.querySelectorAll('.tl-tick')
+    const tooltipElements = document.querySelectorAll('.tl-tick-tooltip[data-floating-tooltip]')
+    const tooltipEl = tooltipElements[index]
+    for (const tick of tickElements) {
+        if (tickElements[index] !== tick) {
+            tick.classList.remove('tl-tick--active')
+        }
+    }
 
-    // if (e.currentTarget instanceof HTMLElement && tooltipEl instanceof HTMLElement) {
-    //     computePosition(e.currentTarget, tooltip).then(({x, y}) => {
-    //         tooltip.style.left = `${x}px`
-    //         tooltip.style.top = `${y + 20}px`
-    //     })
-    //     e.currentTarget.classList.toggle('tl-tick--active')
-    //     tooltip.classList.toggle('d-lg-none')
-    // }
+    for (const tooltip of tooltipElements) {
+        if (tooltipElements[index] !== tooltip) {
+            tooltip.classList.add('d-none')
+        }
+    }
+
+    if (e.currentTarget instanceof HTMLElement && tooltipEl instanceof HTMLElement) {
+        computePosition(e.currentTarget, tooltipEl).then(({x, y}) => {
+            tooltipEl.style.left = `${x}px`
+            tooltipEl.style.top = `${y + 20}px`
+        })
+        e.currentTarget.classList.toggle('tl-tick--active')
+        tooltipEl.classList.toggle('d-none')
+    }
 }
 
 window.addEventListener('resize', () => {
-    const tooltips = document.querySelectorAll('.tl-tick-tooltip')
+    const tooltips = document.querySelectorAll('.tl-tick-tooltip[data-floating-tooltip]')
 
     for (const tooltip of tooltips) {
-        tooltip.classList.add('d-lg-none')
+        tooltip.classList.add('d-none')
     }
 })
 
 document.addEventListener('DOMContentLoaded', () => {
     const tl = timeline.value
     const scrollbar = document.querySelector('[data-simplebar]')
+    const tooltipElements = document.querySelectorAll('.tl-tick-tooltip')
+    for (const tooltip of tooltipElements) {
+        const clone = tooltip.cloneNode(true)
+        if (clone instanceof HTMLElement) {
+            clone.dataset.floatingTooltip = ''
+            clone.classList.add('d-none')
+            clone.classList.remove('d-lg-none')
+        }
+        tl?.append(clone)
+    }
 
     if (scrollbar instanceof HTMLElement) {
         const simplebar = new SimpleBar(scrollbar)
         simplebar.getScrollElement()?.addEventListener('scroll', () => {
-            const tooltips = document.querySelectorAll('.tl-tick-tooltip')
+            const tooltips = document.querySelectorAll('.tl-tick-tooltip[data-floating-tooltip]')
             const ticks = document.querySelectorAll('.tl-tick')
     
             if (tl instanceof HTMLElement && tooltips.length !== 0) {
                 for (const tooltip of tooltips) {
-                    tooltip.classList.add('d-lg-none')
+                    tooltip.classList.add('d-none')
                 }
             }
 
@@ -161,6 +194,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         })
     }
+
+    ticksToDisplay.value = 4
 })
 
 
@@ -323,12 +358,12 @@ document.addEventListener('DOMContentLoaded', () => {
     position: absolute;
     transform: translateX(calc(var(--tl-tick-point-size) + var(--tl-tick-point-offset) + 0.5rem)) translateY(-0.2rem);
 
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: bold;
     text-align: start;
     @include media-breakpoint-up(lg) {
         top: 0;
-        transform: translateY(calc((var(--tl-tick-point-size) * 2) * -1));
+        transform: translateY(calc((var(--tl-tick-point-size) + 1rem) * -1));
     }
 }
 
@@ -398,6 +433,11 @@ document.addEventListener('DOMContentLoaded', () => {
     transition: display ease-in-out 0.3s;
 
     @include media-breakpoint-up(lg) {
+        transform: unset;
+        margin: 0;
+
+        max-width: calc(100% / (var(--tl-ticks-per-view) / 2));
+        position: absolute;
         display: block;
     }
 }
