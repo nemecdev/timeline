@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
 @import 'bootstrap/scss/bootstrap';
 
 :root {
-    --tl-ticks-per-view: 5;
+    --tl-ticks-per-view: 4;
 
     --tl-start-box-radius: 10px;
     --tl-start-box-color: #757575;
