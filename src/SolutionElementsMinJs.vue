@@ -10,7 +10,7 @@
                         class="tl-tick"
                         v-for="(item, index) in ticks.slice(0, ticksToDisplayComputed)"
                         :key="index"
-                        @click="toggleTooltip($event, index)"
+                        @click.prevent="onClickTickCallComputed($event, index)"
                     >
                         <div class="tl-tick-label">{{ item.label }}</div>
                         <div class="tl-tick-point"></div>
@@ -108,7 +108,7 @@ const ticks = ref([
 ])
 const timeline = ref<HTMLElement | null>(null)
 const ticksToDisplayStep = ref<number>(4)
-// Workaround for SSR - Needed for tooltips clone process after DOMContentLoaded
+// Workaround for SSR - Needed for tooltips clone process inside DOMContentLoaded
 const ticksToDisplay = ref<number>(ticks.value.length)
 const ticksToDisplayComputed = computed({
     get() {
@@ -122,7 +122,7 @@ const ticksToDisplayComputed = computed({
         ticksToDisplay.value = value
     }
 })
-
+const onClickTickCallComputed = computed(() => breakpoints.greater('lg').value ? toggleTooltip : () => {})
 const showMore = () => {
     if (ticks.value.length > ticksToDisplay.value) {
         ticksToDisplayComputed.value += ticksToDisplayStep.value
@@ -156,10 +156,15 @@ const toggleTooltip = (e: Event, index: number) => {
 }
 
 window.addEventListener('resize', () => {
+    const tickElements = document.querySelectorAll('.tl-tick.tl-tick--active')
     const tooltips = document.querySelectorAll('.tl-tick-tooltip[data-floating-tooltip]')
 
     for (const tooltip of tooltips) {
         tooltip.classList.add('d-none')
+    }
+
+    for (const tick of tickElements) {
+        tick.classList.remove('tl-tick--active')
     }
 })
 
